@@ -33,9 +33,36 @@ the brief requires **at least one** item. Phase 7 is delivery.
 | 6 — Advanced research directions | Level 5 | **At least one required; the rest optional** |
 | 7 — Final experiments and reporting | Deliverables | **Essential** |
 
-[UNSPECIFIED] No timeline, start date, end date or interim deadline is given in the brief. The
-week numbers below come from the dossier's suggested roadmap and are **indicative only** until
-the real schedule is confirmed — see `TODO.md`.
+## Timeline — a December midterm is confirmed
+
+**A midterm evaluation will take place in December 2026** (source: team, 2026-10-16). The brief
+itself gives no timeline at all — zero occurrences of "midterm", "deadline", "month" or "week".
+The exact date, format and criteria are [UNSPECIFIED] and are the first questions on the
+kickoff agenda.
+
+As of **2026-10-16** that leaves roughly **6–10 weeks**.
+
+### December midterm target [RECOMMENDATION]
+
+Brief **Levels 1–2 complete, plus a preliminary Level 3** — *not* full Levels 3–4:
+
+| Deliverable | Confidence | Gated on |
+|---|---|---|
+| Literature review (see `docs/literature/review-outline.md`) | **High** | Nothing — fully under our control |
+| Working pipeline producing citation labels | Medium | Dataset subset, starter code, LLM choice |
+| Small dataset (hundreds of queries) + label-stability number | Medium | Pipeline |
+| Interpretable baseline vs. rank-only control | Stretch | Dataset |
+
+**The scheduling insight that matters: Phase 1 is the only phase not gated on supervisor
+answers.** Pipeline, dataset and modelling all depend on information we do not yet have. The
+literature review does not. **Start it now, in parallel with waiting for answers** — if the
+answers come slowly, the review is still banked and is a complete midterm artefact on its own.
+
+[RECOMMENDATION] Get one crappy end-to-end run done as early as possible, before any component
+is polished. It exposes integration problems while there is still time to fix them.
+
+[UNSPECIFIED] The week numbers below come from the dossier's suggested roadmap and are
+**indicative only** until the real schedule is confirmed — see `TODO.md`.
 
 ---
 
@@ -91,6 +118,11 @@ anticipates going beyond these two, in those four areas.
 part of week one. [RECOMMENDATION] Do a targeted novelty check early: what has been published on
 GEO since Aggarwal et al.? This bounds what counts as a contribution.
 
+**Status as of 2026-10-16 — partially complete.** Both brief-named papers have verified
+bibliographic records and notes in `docs/literature/`; the GEO paper has been read in full.
+The adopted review structure is `docs/literature/review-outline.md`. Outstanding: read Liu et al.
+in full, and run the post-2024 novelty check.
+
 **Outputs:** `docs/literature/` populated with per-paper notes; a short synthesis of what the GEO
 evaluation protocol and "visibility metrics" actually are in the published work; a novelty-check
 note.
@@ -121,6 +153,12 @@ retrieve relevant documents and use an LLM to generate a grounded answer with so
 
 **Reproduction target:** a subset of existing GEO results and visibility metrics. [BRIEF]
 **Which** subset and metrics is [UNSPECIFIED] — Phase 0 question 5.
+
+**[VERIFIED] GEO's own setup**, which is the concrete thing to reproduce: top-5 Google sources
+per query, no summarisation, `gpt-3.5-turbo`, temperature 0.7, 5 sampled responses, averaged
+over 5 random seeds. Note `gpt-3.5-turbo` is deprecated — the substitute is a supervisor
+question. Their objective metrics `Imp_wc` and `Imp_pwc` are directly implementable and need no
+LLM judge; Subjective Impression needs G-Eval and should be costed before committing.
 
 [DOSSIER] rationale worth adopting: "If your pipeline does not reproduce known effects, your
 labels are suspect."
@@ -154,12 +192,22 @@ retrieval information and citation/visibility outcomes."
   NDCG/MRR, and lift over a rank-only baseline. The brief does not name metrics — [UNSPECIFIED].]
 - Define the **rank-only control baseline** now. [DOSSIER argues this is the single most
   important comparator: it answers whether content matters at all beyond retrieval position.]
+  **[VERIFIED] The GEO paper makes this non-optional:** Cite Sources produced a **+115.1%**
+  visibility increase for rank-5 sources while **the top-ranked source lost 30.3%** on average.
+  Position effects are large and non-monotonic, so a model can score well having learned only
+  "rank 1 gets cited".
 
 **Label-stability study.** [INFERENCE — not in the brief, but the supervised framing depends on it]
 Run the same queries repeatedly at fixed sampling parameters and measure how stable citation
 decisions are. If citation is highly stochastic, there is an accuracy ceiling no model can
 exceed, and every later result must be read against it. [DOSSIER flags this as "the risk most
 likely to be discovered too late" and recommends doing it around week five, not week twenty.]
+
+**Open design decision — settle before building the schema.** GEO's visibility metric is
+**continuous** (share of answer text attributed to a source), not binary cited/not-cited.
+Candidate targets: binary `cited`; continuous `Imp_pwc`; or a four-way multi-class
+(not retrieved / retrieved-not-cited / cited-low / cited-high). [BRIEF]'s "selected **and/or**
+cited" does not settle it. See `docs/literature/review-outline.md` §D.
 
 **Exit criterion:** a documented, versioned dataset; a written evaluation protocol in
 `experiments/configs/`; a measured label-noise ceiling.

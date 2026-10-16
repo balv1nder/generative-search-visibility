@@ -7,7 +7,8 @@ Search Engines**.
 brief. Items that are genuinely uncertain are written as **questions**, not tasks — we do not
 turn an assumption into work. Evidence tags follow `PROJECT_CONTEXT.md`.
 
-Status as of **2026-10-08**: repository initialised, no supervisor contact yet, no code written.
+Status as of **2026-10-16**: repository initialised, no supervisor contact yet, no code written.
+Literature base populated for both brief-named papers. **A December 2026 midterm is confirmed.**
 
 ---
 
@@ -16,6 +17,11 @@ Status as of **2026-10-08**: repository initialised, no supervisor contact yet, 
 - [ ] Every team member reads `PROJECT_CONTEXT.md`, `RESEARCH_PLAN.md`, `DECISIONS.md`, `TODO.md`
 - [ ] Read the original brief in `docs/project-brief/` directly — not only our summary
 - [ ] Agree who owns which workstream (pipeline / modelling / literature / writing) and record it
+- [ ] **Take `docs/meeting-notes/2026-10-16-kickoff-agenda.md` into the kickoff meeting**, then
+      record answers and propagate them per `docs/meeting-notes/README.md`
+- [ ] **Start the literature review now** — it is the only workstream not blocked on supervisor
+      answers, and a complete midterm artefact on its own. Structure:
+      `docs/literature/review-outline.md`
 - [ ] Send the **Supervisor Questions** below to Yannick Le Cacheux, prioritising the four
       blocking ones. [BRIEF offers a dataset subset and initial code examples but neither has a
       concrete form yet — asking is the single highest-value action available right now]
@@ -30,19 +36,42 @@ Status as of **2026-10-08**: repository initialised, no supervisor contact yet, 
 The four marked **BLOCKING** gate Phase 2 of `RESEARCH_PLAN.md`.
 
 **Resources and setup**
+- [x] ~~Does GEO-bench include full document text, or only URLs?~~ **RESOLVED 2026-10-16** —
+      it ships cleaned full text. GEO paper §3.2: "Each query is augmented with the cleaned text
+      content of the top 5 search results from the Google search engine." No scraping needed
 - [ ] **BLOCKING** — Which subset of GEO datasets/benchmarks will be provided, in what format,
-      and when? Is the Hugging Face dataset `GEO-Optim/geo-bench` the intended source?
-      *[BRIEF names GEO-bench and promises a subset "will be provided or identified at the
-      beginning of the project"; the Hugging Face path is [DOSSIER]-sourced and unverified by us]*
+      and when? Does the subset retain the cleaned source text? Is `GEO-Optim/geo-bench` the
+      intended source? *[the HF path is [DOSSIER]-sourced and still unverified; the paper gives
+      `generative-engines.com/GEO/`]*
 - [ ] **BLOCKING** — What **initial code examples and guidance** already exist for the controlled
       generative-search pipeline? *[BRIEF offers these explicitly — we should not rebuild them]*
 - [ ] **BLOCKING** — Which **LLM** should the controlled pipeline use: a commercial API or a
-      locally hosted open model? *[BRIEF permits either; the choice drives cost and
-      reproducibility]*
+      locally hosted open model? **GEO used `gpt-3.5-turbo`, now deprecated — what substitutes
+      for a faithful reproduction?** *[BRIEF permits either; drives cost and reproducibility]*
+      → *proposal: local open-weights model as primary workhorse, API budget reserved for a
+      cross-model transfer check*
 - [ ] **BLOCKING** — Is the **~$500 API budget per project or per student**? How do we access it
       (shared key, our own accounts, reimbursement)? What would justify an increase?
       *[BRIEF states the amount and that it "may be increased depending on the research direction
       and experimental needs", but not the mechanism]*
+
+**Midterm — December 2026, confirmed**
+- [ ] What is expected at the December midterm — report, demo, presentation, or results?
+- [ ] Is "Levels 1–2 plus a preliminary Level 3 baseline" a fair December target?
+- [ ] Would you accept a **negative result** (content adding nothing beyond rank) as valid?
+- [ ] Is the midterm graded, and individually or jointly?
+- [ ] What is the full timeline and final deadline?
+
+**Design decisions raised by reading the papers**
+- [ ] **What exactly do we predict** — binary `cited`, continuous `Imp_pwc`, or a four-way
+      multi-class? *[BRIEF's "selected and/or cited" does not settle it; GEO's metric is
+      continuous. Determines the dataset schema]*
+- [ ] Do we reproduce **Subjective Impression**? It needs a G-Eval LLM judge per citation per
+      response — potentially the largest cost line
+- [ ] Mirror GEO's exact setup (top-5 sources, temp 0.7, 5 samples × 5 seeds)?
+- [ ] Is the novelty **predicting visibility before modification**? *[The GEO paper contains zero
+      occurrences of "predict"]*
+- [ ] Should we condition explicitly on **retrieval rank**? *[rank-5 +115.1% vs rank-1 −30.3%]*
 
 **Scope and direction**
 - [ ] Which **visibility metrics** and which **published GEO results** should the reproduction
@@ -79,15 +108,21 @@ The four marked **BLOCKING** gate Phase 2 of `RESEARCH_PLAN.md`.
 per-paper notes, relevance and priority.
 
 **Named in the brief — High priority**
-- [ ] Read Aggarwal et al., *GEO: Generative Engine Optimization*, KDD 2024. Extract: what
-      GEO-bench contains, how visibility is measured, which effects are reported (these are our
-      reproduction targets)
-- [ ] Read Liu, Zhang, Liang et al., *Evaluating Verifiability in Generative Search Engines*,
-      Findings of the ACL, 2023. Extract: citation-evaluation methodology and how citation
-      support is judged
-- [ ] Verify the full bibliographic details of both papers against the actual publications
-      before citing them anywhere. *[The brief and the dossier state the Liu et al. venue
-      slightly differently — do not resolve this by guessing]*
+- [x] ~~Read Aggarwal et al., *GEO*, KDD 2024~~ **DONE 2026-10-16** — full section-wise notes in
+      `docs/literature/01-geo-aggarwal-2024.md`
+- [x] ~~Verify bibliographic details of both papers~~ **DONE** — GEO is arXiv:2311.09735, KDD 2024;
+      Liu et al. is arXiv:2304.09848, **Findings of EMNLP 2023** (discrepancy resolved)
+- [ ] **Read Liu et al. in full** — the note is currently built from the abstract. Methodology
+      (annotator counts, query counts, rating scales) is marked `UNVERIFIED` and must not be
+      cited until checked
+- [ ] Read **Gao et al., ALCE** (EMNLP 2023) — promoted to High. It specifies the
+      citation-parsing and labelling step we are building. See `03-supporting-literature.md`
+
+**Writing the review**
+- [ ] Draft the review following `docs/literature/review-outline.md`, including the three
+      added sections (rank-only control, label stability, cost model)
+- [ ] Resolve the outstanding verification tasks listed at the foot of
+      `docs/literature/README.md` before any citation reaches the report
 
 **Anticipated by the brief — Medium priority**
 - [ ] [BRIEF] "Additional recent literature on generative search, retrieval, learning-to-rank and

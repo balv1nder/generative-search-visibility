@@ -1,127 +1,121 @@
 # Literature
 
-Reading list for **P11**. This file establishes the literature **explicitly named by the project**
-first. A broad literature search has not been performed and is not needed yet.
+Reading list and notes for **P11**.
 
-## Rules for this file
+## Files
 
-**Do not fabricate bibliographic information.** Every entry below records where its details came
-from. Details taken from the brief are reliable as *the brief's wording*; details taken from the
-dossier are third-party and **unverified by us**. Before any of these are cited in a report,
-**verify them against the actual publication**.
+| File | Contents |
+|---|---|
+| `review-outline.md` | The adopted literature-review structure, with three added sections |
+| `01-geo-aggarwal-2024.md` | GEO (KDD 2024) — the anchor paper. Full section-wise notes |
+| `02-liu-verifiability-2023.md` | Liu et al. (Findings of EMNLP 2023) — citation quality |
+| `03-supporting-literature.md` | ALCE, RAG, DPR, BERT re-ranking, LambdaMART, BEIR |
 
-**Verification status** is tracked per entry:
+## Rules for this directory
+
+**Do not fabricate bibliographic information.** Every field carries a status:
+
+- `verified` — confirmed from a page actually fetched; the source is named in the note
 - `brief-stated` — exactly as written in the official project brief
-- `dossier-stated` — from the dossier's P11 section; not in the brief; **unverified**
-- `verified` — we have checked the detail against the actual paper (none yet)
+- `dossier-stated` — from the dossier's P11 section; third-party, not confirmed
+- `UNVERIFIED` — could not be confirmed. **Must not be cited until checked.**
 
 ---
 
 ## Tier 1 — Named in the project brief
 
-These two are the only papers the brief cites. Both are **High** priority.
+### 1. Aggarwal et al., *GEO: Generative Engine Optimization* — **Priority: High**
 
-### 1. GEO: Generative Engine Optimization
+`verified` — KDD 2024, arXiv:2311.09735. Full details and section-wise summary in
+`01-geo-aggarwal-2024.md`.
 
-- **Authors (brief):** Aggarwal, P., Murahari, V., Rajpurohit, T., Kalyan, A., Narasimhan, K. & Deshpande, A.
-- **Venue (brief):** Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining, 2024
-- **Verification status:** `brief-stated`
-- **Additional identifier:** `dossier-stated` — arXiv:2311.09735. **Unverified.**
+The foundational paper and the source of GEO-bench. Defines the visibility metrics the brief
+asks us to reproduce, the nine optimization strategies, and the experimental pipeline we are
+replicating.
 
-**Why it is relevant, according to the brief.** The brief states the project "will build upon
-existing research on GEO, in particular GEO-bench, a benchmark containing 10,000 queries and
-associated web sources." [DOSSIER] identifies this paper as the source of GEO-bench and "the
-foundational paper".
+**Key facts established by reading it (2026-10-16):**
+- GEO-bench: **10K queries**, 8K/1K/1K split, nine source datasets, 25 domains
+- **GEO-bench ships cleaned full document text** — *"Each query is augmented with the cleaned
+  text content of the top 5 search results from the Google search engine."* No scraping needed
+- Pipeline: top-5 Google sources, `gpt-3.5-turbo`, temperature 0.7, 5 samples × 5 seeds
+- Best methods: **+41%** on Position-Adjusted Word Count, **+28%** on Subjective Impression
+- **Keyword Stuffing performs below baseline** — classic SEO does not transfer
+- **Rank asymmetry:** Cite Sources gave **+115.1%** for rank-5 sources while the top-ranked
+  source **lost 30.3%** on average
+- **The paper never attempts prediction** — zero occurrences of "predict" against 51 of
+  "visibility". It measures the effect of modifications, not visibility before modification
 
-**What we need to learn from it.**
-- What exactly GEO-bench contains: query provenance, document provenance, fields, size, licence.
-- How the paper defines and measures **visibility** — the brief requires reproducing "a subset of
-  existing GEO results and visibility metrics", and the brief itself never enumerates them, so
-  this paper is our main route to knowing what the reproduction target is.
-- Which specific effects/results are reported, so we can choose a defensible reproduction subset.
-- What content modifications the paper claims improve visibility, and how it validates them.
-- How its pipeline is constructed — the brief asks for a pipeline "inspired by existing literature".
+### 2. Liu, Zhang & Liang, *Evaluating Verifiability in Generative Search Engines* — **Priority: High**
 
-**Priority: High.** Blocking for Phases 1–3 of `RESEARCH_PLAN.md`.
+`verified` — **Findings of EMNLP 2023**, arXiv:2304.09848. Details in
+`02-liu-verifiability-2023.md`.
 
----
+> **Venue discrepancy RESOLVED.** The brief says "Findings of the Association for Computational
+> Linguistics, 2023"; the dossier said EMNLP in one place and ACL in another. Confirmed as
+> **Findings of EMNLP 2023** on 2026-10-16.
 
-### 2. Evaluating Verifiability in Generative Search Engines
+Defines citation recall and citation precision. Audits Bing Chat, NeevaAI, Perplexity.ai and
+YouChat: only **51.5%** of generated sentences are fully supported by citations, and only
+**74.5%** of citations support their statement.
 
-- **Authors (brief):** Liu, N. F., Zhang, T., Liang, P. et al.
-- **Venue (brief):** Findings of the Association for Computational Linguistics, 2023
-- **Verification status:** `brief-stated`
-- ⚠️ **Known discrepancy.** The dossier refers to this paper's venue as *Findings of EMNLP 2023*
-  in one place and *Findings of ACL 2023* in another; the brief says only "Findings of the
-  Association for Computational Linguistics, 2023". **Do not resolve this by guessing** — check
-  the actual publication before citing it.
+*The dossier reported 74%; the verified figure is 74.5%.*
 
-**Why it is relevant, according to the brief.** Listed as one of the project's two references.
-[DOSSIER] describes it as "the citation-quality side of the same problem, and methodologically
-the more careful of the two."
-
-**What we need to learn from it.**
-- How to evaluate whether a generated statement is actually supported by the source it cites —
-  directly relevant to the correctness of our citation-parsing and labelling step.
-- Its measurement methodology for citation precision/recall, which may inform our evaluation protocol.
-- What is known about how real generative search engines cite, which is our point of comparison
-  for the controlled setup.
-
-**Priority: High.**
+**Still to do:** read the full paper for methodology (annotator counts, query counts, rating
+scales) — currently `UNVERIFIED`.
 
 ---
 
-## Tier 2 — Anticipated by the brief, not yet named
+## Tier 2 — Anticipated by the brief
 
-The brief states: *"Additional recent literature on generative search, retrieval,
-learning-to-rank and LLM-based evaluation will be investigated during the project."*
-
-So four areas are explicitly in scope without specific papers attached:
+[BRIEF] *"Additional recent literature on generative search, retrieval, learning-to-rank and
+LLM-based evaluation will be investigated during the project."*
 
 | Area | Priority | Why |
 |---|---|---|
 | Generative search | High | The system we are building |
-| Retrieval | High | The pipeline's first stage, and the source of the brief-named `retrieval score` and `ranking position` features |
-| Learning-to-rank | Medium | Named in the brief as a possible advanced direction only |
-| LLM-based evaluation | Medium | Relevant to both labelling quality and any LLM-as-judge component |
+| Retrieval | High | The pipeline's first stage, and the source of brief-named features |
+| LLM-based evaluation | Medium | Bears on labelling quality and any LLM-as-judge component |
+| Learning-to-rank | Medium | A possible advanced direction only |
 
-**Task — Medium priority.** Novelty check: what has been published on GEO **since** Aggarwal et al.?
-[DOSSIER] notes the field is fast-moving, that several follow-up papers already exist, and that
-"several 2026 papers on GEO citation failure and GEO measurement have appeared". We have not
-verified any such paper. This check should produce a short, dated note in this directory.
+**Outstanding task — novelty check.** What has been published on GEO *since* Aggarwal et al.?
+[DOSSIER] notes the field moves fast and claims several 2026 papers on GEO citation failure and
+measurement have appeared. **We have verified no such paper.** This check matters more now that
+we know the foundational paper leaves the predictive framing open — the question is whether a
+follow-up has closed it. Produce a short dated note here.
 
 ---
 
-## Tier 3 — Suggested by the dossier only
+## Tier 3 — Supporting literature
 
-**None of the following is named in the project brief.** They are the dossier's recommendations.
-All details below are `dossier-stated` and **unverified by us**. Read them only if the direction
-we choose actually needs them — several map to optional extensions we may never pursue.
+Not named in the brief; suggested by [DOSSIER]. Full verified details in
+`03-supporting-literature.md`.
 
-| Paper (as stated by the dossier) | Dossier's stated relevance | Our priority | Gate |
-|---|---|---|---|
-| Lewis et al., *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*, NeurIPS 2020 | "the architecture you are building" | **Medium** | Useful background for Phase 2 regardless of direction |
-| Gao et al., *Enabling Large Language Models to Generate Text with Citations* (ALCE), EMNLP 2023 | "the standard benchmark for citation generation and directly relevant to your labelling step" | **Medium** | Most relevant Tier-3 item — it touches the labelling step, which gates everything |
-| Karpukhin et al., *Dense Passage Retrieval*, EMNLP 2020 | dense retrieval | **Medium** | Needed only if we use a dense retriever — currently undecided |
-| Nogueira & Cho, *Passage Re-ranking with BERT*, 2019 | "the cross-encoder approach" | **Low** | Only if we pursue the transformer-comparison extension |
-| Burges, *From RankNet to LambdaRank to LambdaMART*, MSR-TR-2010-82 | learning-to-rank | **Low** | Only if we pursue the learning-to-rank extension |
-| Thakur et al., *BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models*, NeurIPS D&B 2021 | "retrieval evaluation practice" | **Low** | Background for evaluation design |
+| Paper | Priority | Gate |
+|---|---|---|
+| **Gao et al., ALCE** (EMNLP 2023) | **High** | Promoted from Medium — it specifies our citation-parsing and labelling step |
+| Lewis et al., RAG (NeurIPS 2020) | Medium | Architecture background, needed regardless of direction |
+| Thakur et al., BEIR (NeurIPS D&B 2021) | Medium | Sets our retrieval reporting protocol (zero-shot, nDCG@10) |
+| Karpukhin et al., DPR (EMNLP 2020) | Medium | Only if we use a dense retriever — undecided |
+| Nogueira & Cho (arXiv 2019) | Low | Only for the transformer-comparison extension. **Venue UNVERIFIED** |
+| Burges, LambdaMART (MSR-TR-2010-82) | Low | Only for the learning-to-rank extension |
 
 ---
 
 ## Datasets and resources
 
-| Resource | Source of the claim | Status |
+| Resource | Claim | Status |
 |---|---|---|
-| **GEO-bench** — "a benchmark containing 10,000 queries and associated web sources" | `brief-stated` | The brief says a subset "will be provided or identified at the beginning of the project" — confirm with supervisor |
-| GEO-bench hosted on Hugging Face at `GEO-Optim/geo-bench` | `dossier-stated` | **Unverified.** Confirm with supervisor before relying on it — see `TODO.md` |
+| **GEO-bench** — 10K queries, nine source datasets | `verified` from the GEO paper | Subset to be provided by supervisor — confirm |
+| GEO-bench ships cleaned top-5 source text | `verified` from the GEO paper §3.2 | Removes the scraping risk |
+| Hosted on Hugging Face at `GEO-Optim/geo-bench` | `dossier-stated` | **Still unverified.** The paper gives `generative-engines.com/GEO/` |
 
 ---
 
-## Notes directory
+## Outstanding verification tasks
 
-Per-paper reading notes go in this directory as `NN-short-name.md`, one file per paper. Each note
-should record: what the paper does; what we take from it for P11; what we deliberately do not
-take; and the **verified** bibliographic record once checked.
-
-No notes have been written yet.
+- [ ] Liu et al. — read in full; fill in methodology currently marked `UNVERIFIED`
+- [ ] Nogueira & Cho — confirm whether formally published, or cite as preprint
+- [ ] RAG and BEIR — fetch proceedings page numbers
+- [ ] BEIR — pick arXiv ("Heterogenous") or proceedings ("Heterogeneous") spelling, use consistently
+- [ ] Confirm the GEO-bench Hugging Face path with the supervisor
+- [ ] Novelty check: post-2024 GEO literature
