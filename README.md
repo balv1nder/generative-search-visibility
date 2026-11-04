@@ -67,6 +67,7 @@ PYTHONPATH=src python scripts/run_pilot.py \
   --query-limit 1 \
   --max-input-rows 1 \
   --source-char-limit 1000 \
+  --max-output-tokens 512 \
   --ollama-timeout-seconds 900 \
   --output experiments/results/geo-pilot-tiny.json
 ```
@@ -76,6 +77,20 @@ the TOML file or with `--ollama-timeout-seconds`. The CLI value takes precedence
 limits a blocked network operation, not the total duration of the entire pilot. If a request
 times out, the error names the Ollama endpoint and how to increase the limit. Successful earlier
 responses remain cached, so rerunning the same command can reuse them.
+
+Each query logs its generated ID, source count, prompt character count, and whether the exact
+request is already cached before generation. The output-token limit defaults to 512 and is sent
+to Ollama as `num_predict`; set `max_output_tokens` in the TOML or use `--max-output-tokens`.
+The prompt asks for at most three concise answer sentences. After each fully parsed query, the
+runner atomically writes `<output>.partial` with `status: "in_progress"` and the completed
+answers/records. A later timeout leaves this checkpoint intact; a successful run writes the
+normal output with `status: "complete"` and removes the checkpoint.
+
+To isolate a generated GEO-bench row, `--query-id query-2` selects only that row (generated IDs
+are based on input row positions when the config has no ID column). Pair it with `--max-input-rows`
+large enough to include the row, `--source-char-limit 200`, a fresh `--cache-dir`, and a modest
+`--max-output-tokens` to test an uncached request without rerunning the batch. The CLI reports
+the actual selected ID and input size so a timeout can be tied to the precise request.
 
 The output and response cache are git-ignored. The pipeline records citation rate and per-source
 Word Count (WC) and Position-Adjusted Word Count (PAWC); it does not calculate the paper's

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import asdict
-from typing import Iterable, Mapping
+from typing import Callable, Iterable, Mapping
 
 from .metrics import SentenceAttribution, paired_visibility_changes, score_impressions
 from .providers import LLMProvider, LLMRequest
@@ -57,7 +57,8 @@ def build_answer_prompt(
         "Return only a JSON object with a 'sentences' array; each item must contain a non-empty "
         "'text' string and a 'citations' array of source IDs that support that sentence. Use "
         "only provided IDs and do not invent facts. If none of the sources support a sentence, "
-        "use an empty citations array. Always include the citations field. Example: "
+        "use an empty citations array. Keep the answer concise, at most three sentences. "
+        "Always include the citations field. Example: "
         '{"sentences":[{"text":"Example answer.","citations":["source-1"]}]}.\n'
         f"Query: {query.query}\n"
         f"Sources JSON: {json.dumps(sources, ensure_ascii=False)}"
@@ -158,10 +159,22 @@ def run_pilot(
     temperature: float = 0.0,
     top_p: float | None = None,
     source_char_limit: int | None = None,
+    max_output_tokens: int | None = None,
+    on_query_start: Callable[[QueryExample, LLMRequest], None] | None = None,
+    on_query_complete: (
+        Callable[
+            [list[dict[str, object]], list[str], list[dict[str, object]]],
+            None,
+        ]
+        | None
+    ) = None,
 ) -> tuple[list[dict[str, object]], list[str], list[dict[str, object]]]:
+    if max_output_tokens is not None and max_output_tokens < 1:
+        raise ValueError("max_output_tokens must be greater than zero")
     selected = select_pilot_queries(queries, query_limit, seed)
     records: list[dict[str, object]] = []
     answers: list[dict[str, object]] = []
+    completed_query_ids: list[str] = []
     for query in selected:
         source_ids = [source.id for source in query.sources]
         request = LLMRequest(
@@ -171,7 +184,10 @@ def run_pilot(
             top_p=top_p,
             seed=seed,
             response_format=_citation_schema(set(source_ids)),
+            max_output_tokens=max_output_tokens,
         )
+        if on_query_start is not None:
+            on_query_start(query, request)
         response = provider.generate(request)
         attributions = parse_attributions(response.text, set(source_ids))
         missing_citations = [
@@ -235,6 +251,7 @@ def run_pilot(
                     "temperature": temperature,
                     "top_p": top_p,
                     "seed": seed,
+                    "max_output_tokens": max_output_tokens,
                     "source_char_limit": source_char_limit,
                     "source_chars_provided": (
                         min(len(source.text), source_char_limit)
@@ -246,6 +263,13 @@ def run_pilot(
                         and len(source.text) > source_char_limit
                     ),
                 }
+            )
+        completed_query_ids.append(query.id)
+        if on_query_complete is not None:
+            on_query_complete(
+                list(records),
+                list(completed_query_ids),
+                list(answers),
             )
     return records, [query.id for query in selected], answers
 

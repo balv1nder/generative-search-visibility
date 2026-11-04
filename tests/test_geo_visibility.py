@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import sys
 import tempfile
 import unittest
-from io import BytesIO
+from contextlib import redirect_stderr, redirect_stdout
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -27,6 +30,8 @@ from geo_visibility.suggestions import (
     generate_suggestion,
     replace_query_source,
 )
+from scripts import run_pilot as run_pilot_cli
+from scripts.run_pilot import _write_json_atomic
 
 
 class FakeProvider:
@@ -184,8 +189,18 @@ class PilotTests(unittest.TestCase):
             provider = FakeProvider()
             cached = CachedProvider(provider, directory)
             request = LLMRequest("Prompt", "test-model", seed=3)
+            self.assertFalse(cached.is_cached(request))
             self.assertEqual(cached.generate(request), cached.generate(request))
+            self.assertTrue(cached.is_cached(request))
             self.assertEqual(provider.calls, 1)
+
+    def test_output_token_limit_is_part_of_cache_key(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            provider = FakeProvider()
+            cached = CachedProvider(provider, directory)
+            cached.generate(LLMRequest("Prompt", "test-model", max_output_tokens=128))
+            cached.generate(LLMRequest("Prompt", "test-model", max_output_tokens=256))
+            self.assertEqual(provider.calls, 2)
 
     def test_ollama_adapter_uses_configured_tag_and_records_digest(self) -> None:
         responses = [
@@ -213,6 +228,7 @@ class PilotTests(unittest.TestCase):
                     top_p=0.8,
                     seed=4,
                     response_format=response_schema,
+                    max_output_tokens=128,
                 )
             )
         self.assertEqual(response.provider_version, "sha256:abc")
@@ -224,6 +240,7 @@ class PilotTests(unittest.TestCase):
         self.assertEqual(payload["format"], response_schema)
         self.assertEqual(payload["options"]["top_p"], 0.8)
         self.assertEqual(payload["options"]["seed"], 4)
+        self.assertEqual(payload["options"]["num_predict"], 128)
         self.assertEqual(
             [call.kwargs["timeout"] for call in urlopen.call_args_list], [321.5, 321.5]
         )
@@ -250,6 +267,134 @@ class PilotTests(unittest.TestCase):
     def test_ollama_timeout_must_be_positive(self) -> None:
         with self.assertRaisesRegex(ValueError, "greater than zero"):
             OllamaProvider(OllamaConfig("http://ollama.test", "chosen:tag"), 0)
+
+    def test_pilot_checkpoints_each_completed_query_before_later_failure(self) -> None:
+        class FailOnSecondProvider(FakeProvider):
+            def generate(self, request: LLMRequest) -> LLMResponse:
+                self.calls += 1
+                self.requests.append(request)
+                if self.calls == 2:
+                    raise TimeoutError("simulated slow second query")
+                return LLMResponse(
+                    text='{"sentences":[{"text":"Answer.","citations":["d1"]}]}',
+                    model=request.model,
+                    provider="fake",
+                )
+
+        provider = FailOnSecondProvider()
+        starts: list[str] = []
+        checkpoints: list[tuple[list[dict[str, object]], list[str], list[dict[str, object]]]] = []
+        queries = [
+            QueryExample("q1", "Question 1?", (SourceDocument("d1", "Text."),)),
+            QueryExample("q2", "Question 2?", (SourceDocument("d1", "Text."),)),
+        ]
+        with self.assertRaisesRegex(TimeoutError, "simulated slow"):
+            run_pilot(
+                queries,
+                provider,
+                "test-model",
+                query_limit=2,
+                seed=1,
+                max_output_tokens=256,
+                on_query_start=lambda query, request: starts.append(query.id),
+                on_query_complete=lambda records, ids, answers: checkpoints.append(
+                    (records, ids, answers)
+                ),
+            )
+        self.assertEqual(len(starts), 2)
+        self.assertEqual(len(checkpoints), 1)
+        records, completed_ids, answers = checkpoints[0]
+        self.assertEqual(len(records), 1)
+        self.assertEqual(completed_ids, [starts[0]])
+        self.assertEqual(answers[0]["query_id"], starts[0])
+        self.assertEqual(provider.requests[0].max_output_tokens, 256)
+
+    def test_atomic_json_writer_leaves_only_complete_destination(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pilot.json.partial"
+            _write_json_atomic(path, {"status": "in_progress", "records": []})
+            self.assertEqual(
+                json.loads(path.read_text(encoding="utf-8")),
+                {"status": "in_progress", "records": []},
+            )
+            self.assertFalse(path.with_name(path.name + ".tmp").exists())
+
+    def test_runner_preserves_completed_checkpoint_on_later_timeout(self) -> None:
+        class FakeOllama:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def cache_identity(self) -> dict[str, str]:
+                return {"provider": "fake-ollama"}
+
+            def generate(self, request: LLMRequest) -> LLMResponse:
+                self.calls += 1
+                if self.calls == 2:
+                    raise TimeoutError("simulated second-query timeout")
+                return LLMResponse(
+                    text='{"sentences":[{"text":"Answer.","citations":["d1"]}]}',
+                    model=request.model,
+                    provider="ollama",
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "tiny.jsonl"
+            dataset.write_text(
+                "\n".join(
+                    json.dumps(
+                        {
+                            "query": f"Question {index}?",
+                            "sources": [{"id": "d1", "text": "Source text."}],
+                        }
+                    )
+                    for index in (1, 2)
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            output = root / "result.json"
+            config = root / "pilot.toml"
+            config.write_text(
+                f"dataset_path = {json.dumps(str(dataset))}\n"
+                f"output_path = {json.dumps(str(output))}\n"
+                f"cache_dir = {json.dumps(str(root / 'cache'))}\n"
+                "query_limit = 2\n"
+                "seed = 20261104\n"
+                "[columns]\n"
+                'query_id = ""\n'
+                'query = "query"\n'
+                'sources = "sources"\n'
+                'source_id = "id"\n'
+                'source_text = "text"\n',
+                encoding="utf-8",
+            )
+            fake_ollama = FakeOllama()
+            args = [
+                "run_pilot.py",
+                "--config",
+                str(config),
+                "--query-limit",
+                "2",
+            ]
+            with (
+                patch("scripts.run_pilot.OllamaProvider", return_value=fake_ollama),
+                patch.dict(os.environ, {"GEO_OLLAMA_MODEL": "fake-model"}),
+                patch.object(sys, "argv", args),
+                redirect_stdout(StringIO()),
+                redirect_stderr(StringIO()),
+                self.assertRaisesRegex(TimeoutError, "second-query timeout"),
+            ):
+                run_pilot_cli.main()
+
+            checkpoint = Path(str(output) + ".partial")
+            partial_result = json.loads(checkpoint.read_text(encoding="utf-8"))
+            self.assertEqual(partial_result["status"], "in_progress")
+            self.assertEqual(partial_result["completed_queries"], 1)
+            self.assertEqual(partial_result["selected_query_ids"], ["query-2"])
+            self.assertEqual(len(partial_result["answers"]), 1)
+            self.assertEqual(len(partial_result["records"]), 1)
+            self.assertFalse(output.exists())
 
     def test_pilot_requests_schema_constrained_known_citations(self) -> None:
         query = QueryExample(

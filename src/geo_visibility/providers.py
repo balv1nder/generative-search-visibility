@@ -21,6 +21,7 @@ class LLMRequest:
     top_p: float | None = None
     seed: int | None = None
     response_format: str | dict[str, object] | None = None
+    max_output_tokens: int | None = None
 
 
 @dataclass(frozen=True)
@@ -107,12 +108,16 @@ class OllamaProvider:
     def generate(self, request: LLMRequest) -> LLMResponse:
         if request.model != self.config.model:
             raise ValueError("request model must match the configured Ollama model tag")
+        if request.max_output_tokens is not None and request.max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be greater than zero")
         model_digest = self._resolve_model_digest()
         options: dict[str, object] = {"temperature": request.temperature}
         if request.top_p is not None:
             options["top_p"] = request.top_p
         if request.seed is not None:
             options["seed"] = request.seed
+        if request.max_output_tokens is not None:
+            options["num_predict"] = request.max_output_tokens
         payload_value: dict[str, object] = {
             "model": request.model,
             "prompt": request.prompt,
@@ -160,7 +165,7 @@ class CachedProvider:
         self.provider = provider
         self.cache_dir = Path(cache_dir)
 
-    def generate(self, request: LLMRequest) -> LLMResponse:
+    def _cache_file(self, request: LLMRequest) -> Path:
         identity = {
             "provider": (
                 self.provider.cache_identity()
@@ -172,7 +177,13 @@ class CachedProvider:
         cache_key = hashlib.sha256(
             json.dumps(identity, sort_keys=True, ensure_ascii=False).encode("utf-8")
         ).hexdigest()
-        cache_file = self.cache_dir / f"{cache_key}.json"
+        return self.cache_dir / f"{cache_key}.json"
+
+    def is_cached(self, request: LLMRequest) -> bool:
+        return self._cache_file(request).is_file()
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        cache_file = self._cache_file(request)
         if cache_file.is_file():
             cached = json.loads(cache_file.read_text(encoding="utf-8"))
             if not isinstance(cached, dict):
