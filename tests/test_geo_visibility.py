@@ -163,6 +163,20 @@ class PilotTests(unittest.TestCase):
                 {"d1"},
             )
 
+    def test_response_parser_accepts_one_exact_citation_string(self) -> None:
+        attributions = parse_attributions(
+            '{"sentences":[{"text":"Answer.","citations":"d1"}]}',
+            {"d1"},
+        )
+        self.assertEqual(attributions[0].source_ids, ("d1",))
+
+    def test_response_parser_diagnoses_malformed_citations_with_excerpt(self) -> None:
+        response = '{"sentences":[{"text":"Answer.","citations":"d1, d2"}]}'
+        with self.assertRaisesRegex(
+            ValueError, r"one exact source ID string.*response excerpt:.*d1, d2"
+        ):
+            parse_attributions(response, {"d1", "d2"})
+
     def test_cached_provider_reuses_identical_request(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             provider = FakeProvider()

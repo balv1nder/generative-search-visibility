@@ -17,6 +17,13 @@ from .schema import QueryExample
 MAX_PILOT_QUERIES = 50
 
 
+def _response_excerpt(response_text: str, limit: int = 500) -> str:
+    excerpt = " ".join(response_text.split())
+    if len(excerpt) > limit:
+        excerpt = f"{excerpt[:limit]}..."
+    return repr(excerpt)
+
+
 def select_pilot_queries(
     queries: Iterable[QueryExample], limit: int, seed: int
 ) -> list[QueryExample]:
@@ -59,9 +66,15 @@ def parse_attributions(response_text: str, valid_source_ids: set[str]) -> list[S
     try:
         value = json.loads(response_text)
     except json.JSONDecodeError as error:
-        raise ValueError(f"LLM response must be valid JSON: {error}") from error
+        raise ValueError(
+            f"LLM response must be valid JSON: {error}; "
+            f"response excerpt: {_response_excerpt(response_text)}"
+        ) from error
     if not isinstance(value, dict) or not isinstance(value.get("sentences"), list):
-        raise ValueError("LLM response must be an object containing a 'sentences' array")
+        raise ValueError(
+            "LLM response must be an object containing a 'sentences' array; "
+            f"response excerpt: {_response_excerpt(response_text)}"
+        )
     sentences: list[SentenceAttribution] = []
     for index, value_sentence in enumerate(value["sentences"], start=1):
         if not isinstance(value_sentence, dict):
@@ -69,14 +82,26 @@ def parse_attributions(response_text: str, valid_source_ids: set[str]) -> list[S
         text = value_sentence.get("text")
         citations = value_sentence.get("citations")
         if not isinstance(text, str) or not text.strip():
-            raise ValueError(f"sentence {index} must contain non-empty text")
-        if not isinstance(citations, list) or not all(
+            raise ValueError(
+                f"sentence {index} must contain non-empty text; "
+                f"response excerpt: {_response_excerpt(response_text)}"
+            )
+        if isinstance(citations, str) and citations.strip() in valid_source_ids:
+            citations = [citations.strip()]
+        elif not isinstance(citations, list) or not all(
             isinstance(citation, str) for citation in citations
         ):
-            raise ValueError(f"sentence {index} citations must be an array of source IDs")
+            raise ValueError(
+                f"sentence {index} citations must be an array of source IDs, or one exact "
+                f"source ID string; got {citations!r}; "
+                f"response excerpt: {_response_excerpt(response_text)}"
+            )
         unknown = set(citations) - valid_source_ids
         if unknown:
-            raise ValueError(f"sentence {index} cites unknown source IDs: {sorted(unknown)}")
+            raise ValueError(
+                f"sentence {index} cites unknown source IDs: {sorted(unknown)}; "
+                f"response excerpt: {_response_excerpt(response_text)}"
+            )
         sentences.append(SentenceAttribution(text=text.strip(), source_ids=tuple(citations)))
     return sentences
 
