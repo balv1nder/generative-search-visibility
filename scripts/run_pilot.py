@@ -236,3 +236,42 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# Here’s the path the program takes:
+
+# 1. **`scripts/run_pilot.py`** starts the run. It reads your command-line options and the settings in **`experiments/configs/pilot.toml`**. Options you type, such as the dataset path and query limit, can override the config.
+
+# 2. **`schema.py`** reads the dataset row and checks its contents. It turns the question and its source entries into a format the rest of the code can use.
+
+# 3. **`pilot.py`** chooses the one question, prepares the question plus source snippets, and asks for an answer with source labels.
+
+# 4. **`providers.py`** sends that request to Ollama and gets its answer back. It also handles the response cache, which can reuse an answer from an earlier matching run.
+
+# 5. **`metrics.py`** uses the answer and its source labels to calculate WC and PAWC.
+
+# 6. The script saves the answer and the per-source results to your output JSON file.
+
+# For the output:
+
+### What the keys mean
+
+# - **`git_commit`** is an ID for the version of the code used. It’s like a label saying “which copy of the program ran.” It does **not** mean the program made a Git commit.
+
+# - **`git_worktree_dirty`** says whether the code folder had uncommitted changes when it ran. It is just a note; it does not change the answer.
+
+# - **`dataset_path`** tells you which data file was read.
+
+# - **`query_limit: 1`** means “ask Ollama about at most one question.”
+
+# - **`max_input_rows: 1`** means “read at most one row from the file.” This is also a safety limit. Since both are 1, only one question was used.
+
+# - **`source_char_limit: 1000`** means only the first 1,000 characters of each article were sent to Ollama—not the full article.
+
+# - **`temperature`** and **`top_p`** are settings that affect how Ollama writes. They don’t describe the article or score. They help record the conditions of the run so it can be repeated.
+
+# - **`provider: ollama`** means the program used Ollama to generate the answer.
+
+# - **`model: llama3.2:3b`** is the model you selected.
+
+# - **`query_ids`** are labels the program uses to identify the row it selected. They aren’t extra questions you typed in the command.
