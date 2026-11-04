@@ -34,17 +34,66 @@ online content can be adapted to improve its visibility within generative search
 
 ## Current status
 
-**Setup phase — no implementation yet.**
+**Foundation phase.** The repository now has a bounded, config-driven GEO pilot scaffold:
+dataset normalization, paper-defined objective impression metrics, a provider-neutral generation
+interface with an optional local Ollama adapter, caching, and focused tests. It is not yet a
+validated reproduction or a trained predictive baseline.
 
-The repository currently contains the project's shared knowledge base: the brief summary, the
-staged research plan, the decision log and the task list. No research code has been written, and
-no experiments have been run.
+One one-query engineering smoke test completed using a GEO-bench checkout and Ollama
+`llama3.2:3b` available on the user's machine. The dataset was read-only outside this worktree;
+the generated result is ignored and not included in this patch.
 
-The immediate next step is clarifying a small number of blocking questions with the supervisor —
-principally which GEO dataset subset will be provided, what starter code already exists, and
-which LLM the controlled pipeline should use. These are tracked in `TODO.md`.
+The immediate next step remains clarifying the blocking questions with the supervisor — which
+GEO dataset subset will be provided, what starter code already exists, and which LLM should be
+used. These are tracked in `TODO.md`; the scaffold deliberately does not settle those decisions.
 
-**No results are claimed, and no contributions are claimed.**
+**No research result or contribution is claimed.** The smoke test only verifies that the local
+pipeline runs end to end.
+
+## Running the bounded local pilot
+
+`experiments/configs/pilot.toml` maps the GEO-bench JSONL schema inspected for this pilot
+(`query`, and `sources` containing `cleaned_text` and `url`; IDs are assigned by row/source
+position). The pilot rejects limits above 50 queries and defaults to 24 source-bearing queries.
+It requires a running local Ollama service and an explicitly configured model tag; it never
+downloads a model. The recorded rank is the source order supplied by the dataset, not a rank
+produced by a new retriever; this scaffold does not compute retrieval scores.
+
+```sh
+export GEO_OLLAMA_MODEL='llama3.2:3b'  # or another model already installed in Ollama
+PYTHONPATH=src python scripts/run_pilot.py \
+  --config experiments/configs/pilot.toml \
+  --dataset /path/to/geo-bench/test.jsonl \
+  --query-limit 1 \
+  --max-input-rows 1 \
+  --source-char-limit 1000 \
+  --output experiments/results/geo-pilot-tiny.json
+```
+
+The output and response cache are git-ignored. The pipeline records citation rate and per-source
+Word Count (WC) and Position-Adjusted Word Count (PAWC); it does not calculate the paper's
+subjective impression scores. WC and PAWC follow Aggarwal et al., *GEO: Generative Engine
+Optimization*, KDD '24, DOI [10.1145/3637528.3671900](https://doi.org/10.1145/3637528.3671900).
+The implementation counts whitespace-delimited tokens and uses zero-based sentence positions;
+those operational conventions are explicit in `src/geo_visibility/metrics.py`.
+The Ollama adapter looks up and records the model digest; cache keys include that digest so a
+changed model build does not silently reuse prior outputs.
+
+For JSONL inputs, `--max-input-rows` bounds reading before parsing all records, and `--dataset`,
+`--query-limit`, and `--output` override their config values. `--source-char-limit` bounds each
+source passage in the prompt for a quick smoke test; the output records whether source content was
+truncated and saves the raw model answer plus parsed cited source IDs.
+
+Content suggestions are only hypotheses. `generate_suggestion` requests a meaning-preserving edit
+and `replace_query_source` applies it to a query's source set; rerun the same seeded pilot and use
+`compare_pilot_outputs` for paired metric differences. Review meaning preservation and run
+repeated, controlled baseline/revision generations before making any causal claim.
+
+Run focused tests with:
+
+```sh
+PYTHONPATH=src python -m unittest discover -s tests -v
+```
 
 ## High-level methodology
 
@@ -98,7 +147,8 @@ generative-search-visibility/
 │   ├── generation/         LLM answer generation with source citations
 │   ├── citation/           Parsing which documents were actually cited — the labelling step
 │   ├── features/           Feature engineering for the visibility models
-│   └── models/             Predictive models and baselines
+│   ├── models/             Predictive models and baselines
+│   └── geo_visibility/     Normalized data, metrics, providers and bounded pilot
 │
 ├── experiments/
 │   ├── configs/            Experiment configurations — experiments are config-driven
@@ -106,6 +156,7 @@ generative-search-visibility/
 │   └── notebooks/          Exploratory analysis
 │
 ├── scripts/                Entry points and utilities
+├── tests/                  Focused unit tests
 └── reports/                Analysis write-ups, figures, final report material
 ```
 

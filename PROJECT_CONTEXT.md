@@ -261,8 +261,16 @@ Project start and end dates. Whether code and results may be published openly.
 
 # Current Understanding
 
-Status as of **2026-10-08**: repository initialised; no implementation started; no contact with
-the supervisor yet on any open question.
+Status as of **2026-11-04**: repository initialised and a generic bounded pilot scaffold added.
+An externally located GEO-bench checkout and the local Ollama service were available for a
+one-query smoke run with `llama3.2:3b`; the dataset was not copied into this worktree. No
+supervisor questions are recorded as answered.
+
+The scaffold is not a decision about the eventual dataset schema, LLM, retriever, or research
+direction. It accepts a configurable query/source schema, caps pilot execution at 50
+source-bearing queries, and defaults to 24. It computes objective WC/PAWC per the verified GEO
+paper definitions. The single smoke run only demonstrates local end-to-end execution and is not
+a research result; the team's agreed metric set remains [UNSPECIFIED].
 
 What we believe the project is, in one paragraph [INFERENCE, grounded in BRIEF]:
 
