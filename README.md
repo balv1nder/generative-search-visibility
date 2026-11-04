@@ -79,6 +79,11 @@ those operational conventions are explicit in `src/geo_visibility/metrics.py`.
 The Ollama adapter looks up and records the model digest; cache keys include that digest so a
 changed model build does not silently reuse prior outputs.
 
+The request uses Ollama's JSON-schema response mode to require the answer/citations shape and
+restrict citation IDs to the five sources in that query. If the model still omits a sentence's
+`citations` field, that sentence is recorded as uncited with a warning in `answers[].citation_status`
+and `answers[].citation_warnings`; no source attribution is guessed.
+
 For JSONL inputs, `--max-input-rows` bounds reading before parsing all records, and `--dataset`,
 `--query-limit`, and `--output` override their config values. `--source-char-limit` bounds each
 source passage in the prompt for a quick smoke test; the output records whether source content was

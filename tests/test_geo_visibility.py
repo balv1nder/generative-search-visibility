@@ -32,9 +32,11 @@ from geo_visibility.suggestions import (
 class FakeProvider:
     def __init__(self) -> None:
         self.calls = 0
+        self.requests: list[LLMRequest] = []
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.calls += 1
+        self.requests.append(request)
         return LLMResponse(
             text='{"sentences":[{"text":"Example answer.","citations":["d1"]}]}',
             model=request.model,
@@ -195,6 +197,11 @@ class PilotTests(unittest.TestCase):
             ),
         ]
         config = OllamaConfig("http://ollama.test", "chosen:tag")
+        response_schema = {
+            "type": "object",
+            "properties": {"sentences": {"type": "array"}},
+            "required": ["sentences"],
+        }
         with patch(
             "geo_visibility.providers.urllib.request.urlopen", side_effect=responses
         ) as urlopen:
@@ -205,7 +212,7 @@ class PilotTests(unittest.TestCase):
                     temperature=0.2,
                     top_p=0.8,
                     seed=4,
-                    response_format="json",
+                    response_format=response_schema,
                 )
             )
         self.assertEqual(response.provider_version, "sha256:abc")
@@ -214,9 +221,24 @@ class PilotTests(unittest.TestCase):
         self.assertEqual(generation_request.full_url, "http://ollama.test/api/generate")
         payload = json.loads(generation_request.data)
         self.assertEqual(payload["model"], "chosen:tag")
-        self.assertEqual(payload["format"], "json")
+        self.assertEqual(payload["format"], response_schema)
         self.assertEqual(payload["options"]["top_p"], 0.8)
         self.assertEqual(payload["options"]["seed"], 4)
+
+    def test_pilot_requests_schema_constrained_known_citations(self) -> None:
+        query = QueryExample(
+            "q1",
+            "Question?",
+            (SourceDocument("d1", "Text."), SourceDocument("d2", "More text.")),
+        )
+        provider = FakeProvider()
+        run_pilot([query], provider, "test-model", query_limit=1, seed=1)
+        schema = provider.requests[0].response_format
+        self.assertIsInstance(schema, dict)
+        assert isinstance(schema, dict)
+        item = schema["properties"]["sentences"]["items"]
+        self.assertEqual(item["required"], ["text", "citations"])
+        self.assertEqual(item["properties"]["citations"]["items"]["enum"], ["d1", "d2"])
 
     def test_bounded_pipeline_emits_visibility_records(self) -> None:
         queries = [
@@ -235,6 +257,35 @@ class PilotTests(unittest.TestCase):
         self.assertEqual(records[0]["rank"], 1)
         self.assertIn('"sentences"', answers[0]["answer"])
         self.assertIsNone(records[0]["doc_url"])
+
+    def test_missing_citation_fields_are_explicitly_uncited(self) -> None:
+        class MissingCitationProvider:
+            def generate(self, request: LLMRequest) -> LLMResponse:
+                return LLMResponse(
+                    text='{"sentences":[{"text":"Unattributed claim."}]}',
+                    model=request.model,
+                    provider="fake",
+                )
+
+        query = QueryExample(
+            "q1",
+            "Question?",
+            (SourceDocument("d1", "Text."), SourceDocument("d2", "More text.")),
+        )
+        records, _, answers = run_pilot(
+            [query], MissingCitationProvider(), "test-model", query_limit=1, seed=1
+        )
+        self.assertEqual(answers[0]["citation_status"], "missing_fields_treated_as_uncited")
+        self.assertEqual(answers[0]["cited_source_ids"], [])
+        self.assertIn("sentence(s) 1", answers[0]["citation_warnings"][0])
+        self.assertTrue(all(not record["cited"] for record in records))
+        self.assertTrue(all(record["word_count"] == 0 for record in records))
+        self.assertTrue(
+            all(
+                record["citation_status"] == "missing_fields_treated_as_uncited"
+                for record in records
+            )
+        )
 
     def test_geo_bench_rows_can_be_bounded_and_get_generated_ids(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

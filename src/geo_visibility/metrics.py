@@ -11,6 +11,7 @@ from typing import Iterable, Mapping
 class SentenceAttribution:
     text: str
     source_ids: tuple[str, ...]
+    citation_field_missing: bool = False
 
 
 @dataclass(frozen=True)

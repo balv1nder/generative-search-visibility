@@ -20,7 +20,7 @@ class LLMRequest:
     temperature: float = 0.0
     top_p: float | None = None
     seed: int | None = None
-    response_format: str | None = None
+    response_format: str | dict[str, object] | None = None
 
 
 @dataclass(frozen=True)
