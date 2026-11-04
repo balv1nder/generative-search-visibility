@@ -53,17 +53,34 @@ class OllamaConfig:
 
 
 class OllamaProvider:
-    def __init__(self, config: OllamaConfig, timeout_seconds: float = 180.0):
+    def __init__(self, config: OllamaConfig, timeout_seconds: float = 600.0):
+        if timeout_seconds <= 0:
+            raise ValueError("Ollama timeout must be greater than zero seconds")
         self.config = config
         self.timeout_seconds = timeout_seconds
         self._model_digest: str | None = None
 
+    def _timeout_error(self, endpoint: str) -> RuntimeError:
+        return RuntimeError(
+            f"Ollama timed out after {self.timeout_seconds:g} seconds during {endpoint}. "
+            "Increase ollama_timeout_seconds in the pilot config or pass "
+            "--ollama-timeout-seconds; confirm the Ollama service and model are available."
+        )
+
     def _resolve_model_digest(self) -> str:
         if self._model_digest is not None:
             return self._model_digest
-        request = urllib.request.Request(f"{self.config.base_url}/api/tags", method="GET")
-        with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
-            body = json.loads(response.read().decode("utf-8"))
+        endpoint = f"{self.config.base_url}/api/tags"
+        request = urllib.request.Request(endpoint, method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                body = json.loads(response.read().decode("utf-8"))
+        except TimeoutError as error:
+            raise self._timeout_error("/api/tags") from error
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, TimeoutError):
+                raise self._timeout_error("/api/tags") from error
+            raise
         if not isinstance(body, dict) or not isinstance(body.get("models"), list):
             raise ValueError("Ollama returned an invalid model-list payload")
         for model in body["models"]:
@@ -117,6 +134,12 @@ class OllamaProvider:
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"Ollama request failed ({error.code}): {detail}") from error
+        except TimeoutError as error:
+            raise self._timeout_error("/api/generate") from error
+        except urllib.error.URLError as error:
+            if isinstance(error.reason, TimeoutError):
+                raise self._timeout_error("/api/generate") from error
+            raise
         if not isinstance(body, dict) or not isinstance(body.get("response"), str):
             raise ValueError("Ollama returned an invalid response payload")
         returned_model = body.get("model")

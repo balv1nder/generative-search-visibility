@@ -35,6 +35,11 @@ def main() -> None:
         type=int,
         help="Truncate each source to this many characters in the model prompt",
     )
+    parser.add_argument(
+        "--ollama-timeout-seconds",
+        type=float,
+        help="Override the Ollama request timeout in seconds (default: config value or 600)",
+    )
     args = parser.parse_args()
     with args.config.open("rb") as file:
         config = tomllib.load(file)
@@ -46,7 +51,15 @@ def main() -> None:
     columns = DatasetColumns(**config.get("columns", {}))
     queries = load_dataset(dataset_path, columns, max_rows=args.max_input_rows)
     ollama_config = OllamaConfig.from_env()
-    provider = CachedProvider(OllamaProvider(ollama_config), cache_dir)
+    ollama_timeout_seconds = (
+        args.ollama_timeout_seconds
+        if args.ollama_timeout_seconds is not None
+        else float(config.get("ollama_timeout_seconds", 600.0))
+    )
+    provider = CachedProvider(
+        OllamaProvider(ollama_config, timeout_seconds=ollama_timeout_seconds),
+        cache_dir,
+    )
     query_limit = (
         args.query_limit
         if args.query_limit is not None
@@ -97,6 +110,7 @@ def main() -> None:
         "top_p": float(config["top_p"]) if "top_p" in config else None,
         "provider": "ollama",
         "model": ollama_config.model,
+        "ollama_timeout_seconds": ollama_timeout_seconds,
         "selected_query_ids": selected_query_ids,
         "answers": answers,
         "records": records,

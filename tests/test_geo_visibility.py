@@ -205,7 +205,7 @@ class PilotTests(unittest.TestCase):
         with patch(
             "geo_visibility.providers.urllib.request.urlopen", side_effect=responses
         ) as urlopen:
-            response = OllamaProvider(config).generate(
+            response = OllamaProvider(config, timeout_seconds=321.5).generate(
                 LLMRequest(
                     "Prompt",
                     "chosen:tag",
@@ -224,6 +224,32 @@ class PilotTests(unittest.TestCase):
         self.assertEqual(payload["format"], response_schema)
         self.assertEqual(payload["options"]["top_p"], 0.8)
         self.assertEqual(payload["options"]["seed"], 4)
+        self.assertEqual(
+            [call.kwargs["timeout"] for call in urlopen.call_args_list], [321.5, 321.5]
+        )
+
+    def test_ollama_generation_timeout_has_actionable_message(self) -> None:
+        model_list = BytesIO(
+            b'{"models":[{"name":"chosen:tag","digest":"sha256:abc"}]}'
+        )
+        with patch(
+            "geo_visibility.providers.urllib.request.urlopen",
+            side_effect=[model_list, TimeoutError("timed out")],
+        ):
+            provider = OllamaProvider(
+                OllamaConfig("http://ollama.test", "chosen:tag"),
+                timeout_seconds=900,
+            )
+            with self.assertRaisesRegex(
+                RuntimeError,
+                r"Ollama timed out after 900 seconds during /api/generate.*"
+                r"ollama_timeout_seconds.*--ollama-timeout-seconds",
+            ):
+                provider.generate(LLMRequest("Prompt", "chosen:tag"))
+
+    def test_ollama_timeout_must_be_positive(self) -> None:
+        with self.assertRaisesRegex(ValueError, "greater than zero"):
+            OllamaProvider(OllamaConfig("http://ollama.test", "chosen:tag"), 0)
 
     def test_pilot_requests_schema_constrained_known_citations(self) -> None:
         query = QueryExample(

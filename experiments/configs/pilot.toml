@@ -6,6 +6,7 @@ query_limit = 24
 seed = 20261104
 temperature = 0.0
 top_p = 1.0
+ollama_timeout_seconds = 600
 
 # Override only after inspecting the delivered subset's actual field names.
 # Empty ID field names generate stable row/source-position IDs.

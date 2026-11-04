@@ -67,8 +67,15 @@ PYTHONPATH=src python scripts/run_pilot.py \
   --query-limit 1 \
   --max-input-rows 1 \
   --source-char-limit 1000 \
+  --ollama-timeout-seconds 900 \
   --output experiments/results/geo-pilot-tiny.json
 ```
+
+Ollama requests have a 600-second default timeout, configurable as `ollama_timeout_seconds` in
+the TOML file or with `--ollama-timeout-seconds`. The CLI value takes precedence. The timeout
+limits a blocked network operation, not the total duration of the entire pilot. If a request
+times out, the error names the Ollama endpoint and how to increase the limit. Successful earlier
+responses remain cached, so rerunning the same command can reuse them.
 
 The output and response cache are git-ignored. The pipeline records citation rate and per-source
 Word Count (WC) and Position-Adjusted Word Count (PAWC); it does not calculate the paper's
