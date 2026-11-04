@@ -1,0 +1,21 @@
+# This pilot is capped at 50 queries in code; keep it small for initial runs.
+dataset_path = "data/raw/geo-bench/test.jsonl"
+output_path = "experiments/results/geo-pilot.json"
+cache_dir = ".llm_cache"
+query_limit = 24
+seed = 20261104
+temperature = 0.0
+top_p = 1.0
+ollama_timeout_seconds = 600
+max_output_tokens = 512
+
+# Override only after inspecting the delivered subset's actual field names.
+# Empty ID field names generate stable row/source-position IDs.
+[columns]
+query_id = ""
+query = "query"
+sources = "sources"
+source_id = ""
+source_text = "cleaned_text"
+source_title = ""
+source_url = "url"

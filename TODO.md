@@ -141,8 +141,9 @@ per-paper notes, relevance and priority.
 - [ ] `src/features` — the four brief-named features first (semantic similarity, document length,
       retrieval score, ranking position), then any additions, clearly marked as our additions
 - [ ] `src/models` — interpretable baseline, plus a **rank-only control baseline**
-- [ ] Config-driven experiment runner reading `experiments/configs/`; seeds and commit hash
-      recorded with every result
+- [x] Config-driven bounded pilot runner reading `experiments/configs/`; seed, sampling
+      parameters, model tag/digest, and commit hash recorded with each result. Other experiment
+      types still need their own configs and runners.
 
 ---
 
@@ -150,8 +151,13 @@ per-paper notes, relevance and priority.
 
 Ordered by `RESEARCH_PLAN.md`. Nothing here should run before a written cost estimate exists.
 
-- [ ] End-to-end smoke run on a tiny query subset — establishes cost per query and exposes
-      integration problems early *[RECOMMENDATION]*
+- [x] End-to-end smoke run on one GEO-bench test query with local Ollama `llama3.2:3b`, no API
+      key, and a 1,000-character/source prompt cap; result is in the ignored
+      `experiments/results/geo-pilot-tiny.json`. This establishes only that the local pipeline
+      runs, not a research finding. *[RECOMMENDATION]*
+- [x] For the smoke run, inspect an externally located GEO-bench checkout and confirm the local
+      Ollama backend was reachable. The dataset was read-only and not copied into this worktree;
+      the approved research subset/model and supervisor starter code remain open questions.
 - [ ] Reproduce a subset of published GEO results and visibility metrics *[BRIEF Level 1 —
       which subset is a supervisor question]*
 - [ ] **Label-stability study**: repeat identical queries at fixed sampling parameters and measure

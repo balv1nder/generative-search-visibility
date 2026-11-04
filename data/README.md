@@ -25,9 +25,20 @@ GEO-bench, a benchmark containing **10,000 queries and associated web sources**.
 [BRIEF] "A subset of existing GEO datasets and benchmarks will be provided or identified at the
 beginning of the project."
 
-**Status: not obtained.** Which subset, in what format, and when, is an open supervisor question —
-see `TODO.md`. [DOSSIER] states the dataset is public on Hugging Face at `GEO-Optim/geo-bench`;
-**we have not verified this and the brief gives no location.**
+**Status:** a local GEO-bench checkout outside this worktree was inspected for a one-query smoke
+run; it was not copied or modified. The files include `train.jsonl`, `val.jsonl`, and
+`test.jsonl`; the inspected test rows have a `query` string and five `sources` with
+`cleaned_text` and `url`. There are no explicit query or source IDs, so the pilot assigns
+row/source-position IDs. Whether this is the supervisor-provided subset and which split should be
+used for research remain supervisor questions — see `TODO.md`. [DOSSIER] gives a public dataset
+location; the brief itself does not.
+
+The pilot loader accepts one query per row in JSON, JSONL, or CSV. The inspected GEO-bench split
+uses `query` and a `sources` array of objects containing `cleaned_text` and `url`; it has no
+explicit query/source IDs, so stable row/source-position IDs are generated. These fields are
+mapped in `experiments/configs/pilot.toml`. Use `--max-input-rows` for a JSONL smoke test without
+reading the whole file. For another delivered subset, inspect it and update the mapping; do not
+download or transform the full benchmark as part of a smoke test.
 
 **Licence and redistribution terms: [UNSPECIFIED].** Confirm before publishing any derived
 dataset or including source documents in a report.
@@ -60,9 +71,14 @@ data volume.**
 
 ## LLM response cache
 
-LLM responses are cached on disk, keyed by a hash of (model, prompt, parameters). The cache is
-git-ignored but is **the most expensive artefact in the project** — it represents real API spend
-against a limited budget. Back it up outside the repository, and never delete it casually.
+LLM responses are cached on disk, keyed by a hash of provider, model tag, prompt, and sampling
+parameters. The cache is git-ignored but is **the most expensive artefact in the project** — it
+represents real API spend against a limited budget. Back it up outside the repository, and never
+delete it casually.
+
+The local pilot uses an Ollama model tag configured through `GEO_OLLAMA_MODEL` and writes cache
+entries under `.llm_cache/`. The provider-neutral interface is in `src/geo_visibility/providers.py`;
+the Ollama adapter does not select or download a model automatically and records the model digest.
 
 ## Rules
 
